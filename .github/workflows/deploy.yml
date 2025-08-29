@@ -29,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r docker-deployment/requirements.txt
+        pip install -r requirements.txt
         
     - name: Run basic tests
       run: |
@@ -37,9 +37,9 @@ jobs:
         
     - name: Validate Python syntax
       run: |
-        python -m py_compile docker-deployment/src/app.py
-        python -m py_compile docker-deployment/src/global_dashboard.py
-        python -m py_compile docker-deployment/src/s3_manager.py
+        python -m py_compile src/app.py
+        python -m py_compile src/global_dashboard.py
+        python -m py_compile src/s3_manager.py
 
   build-and-deploy:
     needs: test
@@ -68,8 +68,8 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         # Build main dashboard
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker-deployment/Dockerfile docker-deployment/
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest -f docker-deployment/Dockerfile docker-deployment/
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         
         # Push images
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
