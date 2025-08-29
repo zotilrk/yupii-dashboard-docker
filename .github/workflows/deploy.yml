@@ -28,12 +28,12 @@ jobs:
         echo "S3_BUCKET_NAME=xideralaws-curso-carlos" >> .env
         
         # Build and start with docker-compose
-        docker-compose up -d --build
+        sudo docker-compose up -d --build
         
     - name: Verify deployment
       run: |
         sleep 10
-        docker-compose ps
+        sudo docker-compose ps
         curl -f http://localhost:8501 || echo "Main dashboard not ready yet"
         curl -f http://localhost:8502 || echo "Global dashboard not ready yet"
         
