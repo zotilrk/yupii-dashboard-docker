@@ -14,28 +14,7 @@ services:
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-xideralaws-curso-carlos}
     volumes:
       - ./src:/app/src:ro  # Mount source code for development
-    command: ["streamlit", "run", "src/app.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.enableXsrfProtection=false", "--server.enableCORS=false"]
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  yupii-global-dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8502:8501"
-    environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-xideralaws-curso-carlos}
-    volumes:
-      - ./src:/app/src:ro  # Mount source code for development
-    command: ["streamlit", "run", "src/global_dashboard.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.enableXsrfProtection=false", "--server.enableCORS=false"]
+    command: ["streamlit", "run", "src/hub.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.enableXsrfProtection=false", "--server.enableCORS=false"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]

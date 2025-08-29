@@ -47,12 +47,10 @@ jobs:
       run: |
         sleep 10
         sudo docker-compose ps
-        curl -f http://localhost:8501 || echo "Main dashboard not ready yet"
-        curl -f http://localhost:8502 || echo "Global dashboard not ready yet"
+        curl -f http://localhost:8501 || echo "Dashboard not ready yet"
         
     - name: Show public URLs
       run: |
         PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
         echo "🎉 Deployment completed!"
-        echo "📊 Main Dashboard: http://$PUBLIC_IP:8501"
-        echo "🌍 Global Dashboard: http://$PUBLIC_IP:8502"
+        echo "🎯 Yupii Dashboard Hub: http://$PUBLIC_IP:8501"
