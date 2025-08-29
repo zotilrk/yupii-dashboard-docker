@@ -1,0 +1,141 @@
+name: Deploy Yupii Dashboard to EC2
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  ECR_REPOSITORY: yupii-dashboard
+  ECS_SERVICE: yupii-dashboard-service
+  ECS_CLUSTER: yupii-cluster
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r docker-deployment/requirements.txt
+        
+    - name: Run basic tests
+      run: |
+        python -c "import streamlit, pandas, matplotlib, seaborn, boto3; print('All dependencies imported successfully')"
+        
+    - name: Validate Python syntax
+      run: |
+        python -m py_compile docker-deployment/src/app.py
+        python -m py_compile docker-deployment/src/global_dashboard.py
+        python -m py_compile docker-deployment/src/s3_manager.py
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_DEFAULT_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build main dashboard
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f docker-deployment/Dockerfile docker-deployment/
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest -f docker-deployment/Dockerfile docker-deployment/
+        
+        # Push images
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        
+    - name: Deploy to EC2 via SSM
+      env:
+        INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+        S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      run: |
+        aws ssm send-command \
+          --instance-ids $INSTANCE_ID \
+          --document-name "AWS-RunShellScript" \
+          --parameters 'commands=[
+            "#!/bin/bash",
+            "cd /home/ec2-user/yupii-dashboard || mkdir -p /home/ec2-user/yupii-dashboard && cd /home/ec2-user/yupii-dashboard",
+            "echo \"Stopping existing containers...\"",
+            "sudo docker stop yupii-dashboard-app yupii-dashboard-global || true",
+            "sudo docker rm yupii-dashboard-app yupii-dashboard-global || true",
+            "echo \"Logging into ECR...\"",
+            "aws ecr get-login-password --region ${{ env.AWS_DEFAULT_REGION }} | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
+            "echo \"Pulling new images...\"",
+            "sudo docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest",
+            "echo \"Starting main dashboard on port 8501...\"",
+            "sudo docker run -d --name yupii-dashboard-app \
+              -p 8501:8501 \
+              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              -e AWS_DEFAULT_REGION=${{ env.AWS_DEFAULT_REGION }} \
+              -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
+              --restart unless-stopped \
+              ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest \
+              streamlit run src/app.py --server.port=8501 --server.address=0.0.0.0 --server.enableXsrfProtection=false --server.enableCORS=false",
+            "echo \"Starting global dashboard on port 8502...\"",
+            "sudo docker run -d --name yupii-dashboard-global \
+              -p 8502:8501 \
+              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              -e AWS_DEFAULT_REGION=${{ env.AWS_DEFAULT_REGION }} \
+              -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
+              --restart unless-stopped \
+              ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest \
+              streamlit run src/global_dashboard.py --server.port=8501 --server.address=0.0.0.0 --server.enableXsrfProtection=false --server.enableCORS=false",
+            "echo \"Deployment completed!\"",
+            "echo \"Main Dashboard: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8501\"",
+            "echo \"Global Dashboard: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8502\"",
+            "sudo docker ps"
+          ]' \
+          --region ${{ env.AWS_DEFAULT_REGION }}
+
+  notify:
+    needs: [test, build-and-deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [ "${{ needs.build-and-deploy.result }}" == "success" ]; then
+          echo "✅ Deployment successful!"
+          echo "Main Dashboard available at: http://YOUR_EC2_IP:8501"
+          echo "Global Dashboard available at: http://YOUR_EC2_IP:8502"
+        else
+          echo "❌ Deployment failed!"
+        fi
