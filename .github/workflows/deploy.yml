@@ -15,9 +15,22 @@ jobs:
       
     - name: Stop existing containers
       run: |
+        # Stop docker-compose services
         sudo docker-compose down || true
+        
+        # Stop any containers using our ports
+        sudo docker stop $(sudo docker ps -q --filter "publish=8501") || true
+        sudo docker stop $(sudo docker ps -q --filter "publish=8502") || true
+        
+        # Remove specific containers if they exist
         sudo docker stop yupii-dashboard-app yupii-dashboard-global || true
         sudo docker rm yupii-dashboard-app yupii-dashboard-global || true
+        
+        # Remove any containers from this project
+        sudo docker rm -f $(sudo docker ps -aq --filter "name=yupii-dashboard") || true
+        
+        # Clean up any dangling containers
+        sudo docker container prune -f || true
         
     - name: Build and start services
       run: |
