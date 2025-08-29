@@ -357,28 +357,6 @@ for pedido in pedidos_raw[1:]:
 df = pd.DataFrame(data, columns=["fecha", "establecimiento", "producto", "costo_envio"])
 df["fecha"] = pd.to_datetime(df["fecha"], format="%d/%m/%y", errors="coerce")
 
-# Mostrar estadísticas de filtrado de productos
-if productos_filtrados:
-    st.info(f"🧹 **Filtrado inteligente activado:** Se filtraron {len(productos_filtrados)} instrucciones de envío que no eran productos reales.")
-    
-    with st.expander("🔍 Ver productos filtrados"):
-        st.write("**Instrucciones de envío filtradas:**")
-        for i, prod_filtrado in enumerate(productos_filtrados[:10], 1):  # Mostrar máximo 10
-            st.write(f"{i}. {prod_filtrado}")
-        if len(productos_filtrados) > 10:
-            st.write(f"... y {len(productos_filtrados) - 10} más")
-        st.info("💡 Estos textos se identificaron como instrucciones de envío, no como productos reales.")
-
-# Mostrar estadísticas de normalización de establecimientos
-if establecimientos_normalizados:
-    st.success(f"🏪 **Normalización de establecimientos activada:** Se unificaron {len(establecimientos_normalizados)} establecimientos con variaciones en el nombre.")
-    
-    with st.expander("🔍 Ver establecimientos normalizados"):
-        st.write("**Establecimientos unificados:**")
-        for establecimiento_unificado, variaciones in establecimientos_normalizados.items():
-            st.write(f"**{establecimiento_unificado}** ← {', '.join(set(variaciones))}")
-        st.info("💡 Diferentes variaciones del mismo establecimiento se han unificado para un análisis más preciso.")
-
 # Placeholder si no hay datos
 if df["fecha"].isnull().all():
     st.warning("No se detectaron pedidos válidos. Selecciona un archivo desde S3 para ver resultados.")
@@ -468,8 +446,6 @@ if not df_filtrado.empty:
     col3.metric("Pago al repartidor (70%)", f"${pago_total:,.2f}")
     col4.metric("Reparaciones", f"${reparaciones:,.2f}")
     col5.metric("Total a entregar a Yupii", f"${entregar_yupii:,.2f}")
-    if ingresos_extra > 0:
-        st.info(f"Ingresos extra por mensajes de Yupii en el rango seleccionado: ${ingresos_extra:,.2f}")
 
     # Exportar KPIs y datos principales a PNG tipo tarjeta/reporte
     import matplotlib.patches as patches
@@ -639,10 +615,8 @@ if not df_filtrado.empty:
             mime="image/png"
         )
         plt.close(fig)
-    else:
-        st.info("No hay datos suficientes para mostrar la gráfica por días de la semana.")
 else:
-    st.info("No hay datos en el rango seleccionado.")
+    pass
 
 # Exportar data limpia y agregar al dataset global (usando S3)
 if not df_filtrado.empty:
@@ -669,18 +643,8 @@ if not df_filtrado.empty:
                                           errors='coerce')
         
         # Guardar dataset global actualizado en S3
-        if s3_manager.save_dataset(df_global, "dataset_global.csv"):
-            st.success(f"✅ Dataset global actualizado en S3: {len(df_global)} registros totales")
-            fechas_validas_global = df_global["fecha"].dropna()
-            if not fechas_validas_global.empty:
-                st.info(f"📅 Rango de fechas en dataset global: {fechas_validas_global.min().strftime('%d/%m/%Y')} - {fechas_validas_global.max().strftime('%d/%m/%Y')}")
-            else:
-                st.warning("⚠️ No hay fechas válidas en el dataset global")
-        else:
-            st.error("❌ Error al guardar dataset global en S3")
-    else:
-        st.warning("📁 Dataset global no se pudo actualizar (sin conexión S3)")
-
+        s3_manager.save_dataset(df_global, "dataset_global.csv")
+    
     # Exportar data limpia individual
     csv = df_filtrado.to_csv(index=False).encode("utf-8")
     st.download_button(
@@ -690,40 +654,4 @@ if not df_filtrado.empty:
         mime="text/csv"
     )
 
-# Footer manual de uso
-st.markdown("""
----
-### Manual de uso - Versión S3
-1. Configura las variables de entorno AWS (ACCESS_KEY_ID, SECRET_ACCESS_KEY, REGION, BUCKET_NAME).
-2. Sube archivos .txt a la carpeta 'pedidos/' en tu bucket S3.
-3. Ingresa tu nombre como repartidor.
-4. Selecciona un archivo de la lista de archivos disponibles en S3.
-5. Selecciona el rango de fechas que deseas analizar.
-6. Visualiza tus KPIs y gráficas semanales.
-7. Exporta tu reporte en PNG y tu data limpia en CSV.
 
-#### Variables de entorno requeridas
-```bash
-AWS_ACCESS_KEY_ID=tu_access_key
-AWS_SECRET_ACCESS_KEY=tu_secret_key
-AWS_DEFAULT_REGION=us-east-1
-S3_BUCKET_NAME=yupii-data-bucket
-```
-
-#### Instalación y ejecución con Docker
-```bash
-# 1. Construir la imagen
-docker build -t yupii-dashboard .
-
-# 2. Ejecutar el contenedor
-docker run -p 8501:8501 \
-  -e AWS_ACCESS_KEY_ID=tu_access_key \
-  -e AWS_SECRET_ACCESS_KEY=tu_secret_key \
-  -e AWS_DEFAULT_REGION=us-east-1 \
-  -e S3_BUCKET_NAME=yupii-data-bucket \
-  yupii-dashboard
-```
-
----
-Colores corporativos Yupii: #185E8D, #00AEEF, #000000
-""")

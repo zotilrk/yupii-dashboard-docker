@@ -200,8 +200,7 @@ st.sidebar.subheader(f"{EMOJI_CALENDARIO} Selección de Dataset")
 if s3_connected:
     opcion_dataset = st.sidebar.radio(
         "Elige el dataset a analizar:",
-        ["Dataset global desde S3", "Cargar archivo personalizado"],
-        help="Selecciona la fuente de datos para el análisis"
+        ["Dataset global desde S3", "Cargar archivo personalizado"]
     )
     
     if opcion_dataset == "Dataset global desde S3":
@@ -217,14 +216,12 @@ if s3_connected:
             dataset_seleccionado = "dataset_global.csv (desde S3)"
             st.sidebar.success(f"✅ Dataset cargado desde S3: {len(df_global)} registros")
         else:
-            st.sidebar.warning("📁 No se pudo cargar el dataset desde S3")
             df_global = pd.DataFrame()
     
     elif opcion_dataset == "Cargar archivo personalizado":
         archivo_personalizado = st.sidebar.file_uploader(
             "Sube tu archivo CSV personalizado",
-            type=["csv"],
-            help="Archivo debe contener columnas: fecha, establecimiento, producto, costo_envio, repartidor"
+            type=["csv"]
         )
         
         if archivo_personalizado:
@@ -244,8 +241,7 @@ else:
     
     archivo_personalizado = st.sidebar.file_uploader(
         "Sube tu archivo CSV (fallback local)",
-        type=["csv"],
-        help="Archivo debe contener columnas: fecha, establecimiento, producto, costo_envio, repartidor"
+        type=["csv"]
     )
     
     if archivo_personalizado:
@@ -327,8 +323,7 @@ if not df_global.empty and "fecha" in df_global.columns:
             repartidores_seleccionados = st.sidebar.multiselect(
                 f"{EMOJI_REPARTIDOR} Repartidores",
                 options=repartidores_disponibles,
-                default=repartidores_disponibles,
-                help="Selecciona uno o más repartidores para analizar"
+                default=repartidores_disponibles
             )
         else:
             repartidores_seleccionados = []
@@ -336,13 +331,11 @@ if not df_global.empty and "fecha" in df_global.columns:
         # Botón para ejecutar análisis
         analizar_global = st.sidebar.button(
             "🚀 Ejecutar Análisis Global",
-            type="primary",
-            help="Procesar datos con los filtros seleccionados"
+            type="primary"
         )
         
     else:
         analizar_global = False
-        st.warning("❌ No hay fechas válidas en el dataset")
 else:
     analizar_global = False
 
@@ -366,7 +359,7 @@ if analizar_global and not df_global.empty:
             df_filtrado = df_filtrado[df_filtrado["repartidor"].isin(repartidores_seleccionados)]
         
         if df_filtrado.empty:
-            st.warning("⚠️ No hay datos en el rango de fechas y filtros seleccionados.")
+            pass
         else:
             # === ANÁLISIS GLOBAL ===
             st.header(f"{EMOJI_GLOBAL} Análisis Global del Período")
@@ -384,29 +377,25 @@ if analizar_global and not df_global.empty:
             with col1:
                 st.metric(
                     label="🚛 Total Envíos",
-                    value=f"{total_envios:,}",
-                    help="Número total de envíos en el período"
+                    value=f"{total_envios:,}"
                 )
             
             with col2:
                 st.metric(
                     label="💰 Ingresos Totales",
-                    value=f"${total_ingresos:,.2f}",
-                    help="Suma de todos los costos de envío"
+                    value=f"${total_ingresos:,.2f}"
                 )
             
             with col3:
                 st.metric(
                     label="📊 Promedio por Envío",
-                    value=f"${promedio_por_envio:.2f}",
-                    help="Costo promedio por envío"
+                    value=f"${promedio_por_envio:.2f}"
                 )
             
             with col4:
                 st.metric(
                     label="📅 Días Activos",
-                    value=f"{dias_activos}",
-                    help="Número de días con actividad"
+                    value=f"{dias_activos}"
                 )
 
             # === ANÁLISIS POR REPARTIDOR ===
@@ -598,8 +587,7 @@ if analizar_global and not df_global.empty:
                     label="📊 Descargar análisis por repartidor (CSV)",
                     data=csv_data,
                     file_name=f"analisis_repartidores_{fecha_inicio.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    help="Descarga el análisis completo en formato CSV"
+                    mime="text/csv"
                 )
             
             # Exportar datos filtrados
@@ -608,54 +596,10 @@ if analizar_global and not df_global.empty:
                 label="📋 Descargar datos filtrados (CSV)",
                 data=csv_filtered,
                 file_name=f"datos_filtrados_{fecha_inicio.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}.csv",
-                mime="text/csv",
-                help="Descarga los datos filtrados en formato CSV"
+                mime="text/csv"
             )
 
 elif not analizar_global:
-    # Pantalla inicial sin análisis
-    st.info(f"""
-    {EMOJI_ENTREGA} **Instrucciones de uso:**
-    
-    1. **Conexión S3**: Asegúrate de que las credenciales AWS estén configuradas
-    2. **Dataset**: El dataset global se carga automáticamente desde S3
-    3. **Filtros**: Selecciona el rango de fechas y repartidores en la barra lateral
-    4. **Análisis**: Presiona el botón "🚀 Ejecutar Análisis Global" para ver resultados
-    
-    📊 **Métricas disponibles:**
-    - KPIs globales del período
-    - Rendimiento por repartidor 
-    - Análisis temporal (tendencias diarias)
-    - Top establecimientos más frecuentes
-    - Exportación de resultados en CSV
-    """)
+    pass
 
-# Footer
-st.markdown("""
----
-### Manual de uso - Dashboard Global con S3
 
-#### Variables de entorno requeridas
-```bash
-AWS_ACCESS_KEY_ID=tu_access_key
-AWS_SECRET_ACCESS_KEY=tu_secret_key
-AWS_DEFAULT_REGION=us-east-1
-S3_BUCKET_NAME=yupii-data-bucket
-```
-
-#### Ejecución con Docker
-```bash
-# Construir imagen
-docker build -t yupii-global-dashboard .
-
-# Ejecutar contenedor
-docker run -p 8502:8501 \
-  -e AWS_ACCESS_KEY_ID=tu_access_key \
-  -e AWS_SECRET_ACCESS_KEY=tu_secret_key \
-  -e AWS_DEFAULT_REGION=us-east-1 \
-  -e S3_BUCKET_NAME=yupii-data-bucket \
-  yupii-global-dashboard
-```
-
-**Colores corporativos Yupii:** {YUPII_BLUE}, {YUPII_CYAN}, {YUPII_BLACK}
-""")
