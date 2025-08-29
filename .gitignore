@@ -72,7 +72,6 @@ logs/
 
 # Local data files
 *.csv
-*.txt
 data/
 uploads/
 
