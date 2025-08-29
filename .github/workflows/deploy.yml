@@ -15,9 +15,9 @@ jobs:
       
     - name: Stop existing containers
       run: |
-        docker-compose down || true
-        docker stop yupii-dashboard-app yupii-dashboard-global || true
-        docker rm yupii-dashboard-app yupii-dashboard-global || true
+        sudo docker-compose down || true
+        sudo docker stop yupii-dashboard-app yupii-dashboard-global || true
+        sudo docker rm yupii-dashboard-app yupii-dashboard-global || true
         
     - name: Build and start services
       run: |
