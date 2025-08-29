@@ -241,4 +241,4 @@ Para soporte técnico o preguntas sobre el deployment:
 
 ---
 
-**Colores Corporativos Yupii**: #185E8D (Azul), #00AEEF (Cian), #000000 (Negro)
+**Colores Corporativos Yupii**: #185E8D (Azul), #00AEEF (Cian), #000000 (Negro).
