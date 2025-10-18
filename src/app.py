@@ -420,14 +420,30 @@ if analizar:
         st.error("La fecha de fin no puede ser menor a la fecha de inicio.")
         df_filtrado = pd.DataFrame(columns=df.columns)
         ingresos_extra = 0
+        ingresos_extra_weekend = 0
     else:
         fecha_inicio_dt = datetime.combine(fecha_inicio, datetime.min.time())
         fecha_fin_dt = datetime.combine(fecha_fin, datetime.max.time())
         df_filtrado = df[(df["fecha"] >= fecha_inicio_dt) & (df["fecha"] <= fecha_fin_dt)]
-        ingresos_extra, _ = extra_ingresos(text, fecha_inicio_dt, fecha_fin_dt)
+        ingresos_extra, fechas_ingresos_extra = extra_ingresos(text, fecha_inicio_dt, fecha_fin_dt)
+        
+        # Calcular ingresos extra específicos del fin de semana
+        ingresos_extra_weekend = 0
+        if fechas_ingresos_extra:
+            for fecha_extra in fechas_ingresos_extra:
+                # Si la fecha del ingreso extra es fin de semana (sábado=5, domingo=6)
+                if fecha_extra.weekday() in [5, 6]:
+                    # Buscar el monto específico de esa fecha
+                    pattern = rf"\[{fecha_extra.strftime('%d/%m/%y')},.*?\] Yupii:.*?([$🔴🟢🟡🟣🟠🟤⚫️]*\$\d+).*más de envío"
+                    matches = re.findall(pattern, text)
+                    for monto_text in matches:
+                        monto_match = re.search(r"\$(\d+)", monto_text)
+                        if monto_match:
+                            ingresos_extra_weekend += int(monto_match.group(1))
 else:
     df_filtrado = pd.DataFrame(columns=df.columns)
     ingresos_extra = 0
+    ingresos_extra_weekend = 0
 
 # KPIs globales y de fin de semana
 if not df_filtrado.empty:
@@ -517,11 +533,17 @@ if not df_filtrado.empty:
     df_weekend = df_filtrado[weekend_mask]
     if not df_weekend.empty:
         st.subheader(f"🍕 KPIs de Fin de Semana (Sábado y Domingo) {EMOJI_MOTO}")
-        colw1, colw2 = st.columns(2)
+        colw1, colw2, colw3 = st.columns(3)
         envios_weekend = len(df_weekend)
-        ingreso_weekend = df_weekend["costo_envio"].sum()
+        ingreso_weekend_base = df_weekend["costo_envio"].sum()
+        ingreso_weekend_total = ingreso_weekend_base + ingresos_extra_weekend
+        
         colw1.metric("Envíos en fin de semana", f"{envios_weekend}")
-        colw2.metric("Ingreso en fin de semana", f"${ingreso_weekend:,.2f}")
+        colw2.metric("Ingreso base fin de semana", f"${ingreso_weekend_base:,.2f}")
+        colw3.metric("Ingreso total fin de semana", f"${ingreso_weekend_total:,.2f}")
+        
+        if ingresos_extra_weekend > 0:
+            st.success(f"💰 Ingresos extra del fin de semana: ${ingresos_extra_weekend:,.2f}")
 
     # Visualización por días de la semana
     st.subheader(f"📊 Pedidos e Ingresos por Día de la Semana {EMOJI_ENTREGA}")
